@@ -1,26 +1,89 @@
-@import "tailwindcss";
+@import 'tailwindcss';
+
+/**
+ * MVTTC institutional design tokens.
+ *
+ * PROVISIONAL: the teal family below is derived from the existing MVTTC web
+ * presence and the assessment form's branding. Replace with exact values once
+ * the official logo file / brand guide is supplied (PRD.md §11, item 2).
+ * Every colour is referenced through a token, so that swap is one edit here.
+ */
+@theme {
+  --color-mvttc-50: #eefbf7;
+  --color-mvttc-100: #d4f5ea;
+  --color-mvttc-200: #ace9d8;
+  --color-mvttc-300: #76d7c1;
+  --color-mvttc-400: #41bca5;
+  --color-mvttc-500: #1f9f8b;
+  --color-mvttc-600: #148070;
+  --color-mvttc-700: #12665b;
+  --color-mvttc-800: #13524b;
+  --color-mvttc-900: #13443f;
+  --color-mvttc-950: #042724;
+
+  /* Accent reserved for status and emphasis, never for large surfaces. */
+  --color-gold-400: #d6a545;
+  --color-gold-500: #bd8a2c;
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-source-serif), ui-serif, Georgia, serif;
+}
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f7f8f7;
+  --surface: #ffffff;
+  --foreground: #14201d;
+  --muted: #5c6b67;
+  --border: #dfe5e3;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --background: #0c1412;
+    --surface: #121d1a;
+    --foreground: #e8efec;
+    --muted: #9aaba6;
+    --border: #22322e;
+  }
+}
+
+:root[data-theme='dark'] {
+  --background: #0c1412;
+  --surface: #121d1a;
+  --foreground: #e8efec;
+  --muted: #9aaba6;
+  --border: #22322e;
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-surface: var(--surface);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-muted: var(--muted);
+  --color-border: var(--border);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Assessors work one-handed on phones; 44px is the minimum comfortable target. */
+@layer utilities {
+  .tap-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* Respect users who ask for reduced motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
