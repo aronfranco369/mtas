@@ -229,6 +229,57 @@ export type Database = {
         };
         Relationships: [];
       };
+      submission_resets: {
+        Row: {
+          id: string;
+          student_id: string;
+          assessor_id: string | null;
+          cleared_by: string | null;
+          original_submission_id: string;
+          assessed_on: string | null;
+          theory_total: number | null;
+          theory_percentage: number | null;
+          practical_total: number | null;
+          practical_percentage: number | null;
+          email_status: string | null;
+          pdf_object_key: string | null;
+          reason: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          student_id: string;
+          assessor_id?: string | null;
+          cleared_by?: string | null;
+          original_submission_id: string;
+          assessed_on?: string | null;
+          theory_total?: number | null;
+          theory_percentage?: number | null;
+          practical_total?: number | null;
+          practical_percentage?: number | null;
+          email_status?: string | null;
+          pdf_object_key?: string | null;
+          reason?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          student_id?: string;
+          assessor_id?: string | null;
+          cleared_by?: string | null;
+          original_submission_id?: string;
+          assessed_on?: string | null;
+          theory_total?: number | null;
+          theory_percentage?: number | null;
+          practical_total?: number | null;
+          practical_percentage?: number | null;
+          email_status?: string | null;
+          pdf_object_key?: string | null;
+          reason?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       submission_scores: {
         Row: { area_id: string; id: string; score: number; submission_id: string };
         Insert: { area_id: string; id?: string; score: number; submission_id: string };

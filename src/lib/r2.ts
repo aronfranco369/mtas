@@ -4,6 +4,7 @@ import {
   PutObjectCommand,
   GetObjectCommand,
   HeadBucketCommand,
+  DeleteObjectCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
@@ -59,6 +60,11 @@ export async function getPdf(key: string): Promise<Buffer> {
   const res = await r2().send(new GetObjectCommand({ Bucket: bucket(), Key: key }));
   const bytes = await res.Body!.transformToByteArray();
   return Buffer.from(bytes);
+}
+
+/** Removes a stored report — used when an administrator clears an assessment. */
+export async function deletePdf(key: string) {
+  await r2().send(new DeleteObjectCommand({ Bucket: bucket(), Key: key }));
 }
 
 /** Short-lived URL. 15 minutes is long enough to click, short enough to matter. */

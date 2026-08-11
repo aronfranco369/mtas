@@ -64,6 +64,7 @@ const styles = StyleSheet.create({
   collegeName: { fontFamily: 'Helvetica-Bold', fontSize: 12, letterSpacing: 0.2 },
   courseName: { fontFamily: 'Helvetica-Bold', fontSize: 9.5, marginTop: 3 },
   formTitle: { fontFamily: 'Helvetica-Bold', fontSize: 9.5, marginTop: 3 },
+  formSubtitle: { fontFamily: 'Helvetica-Bold', fontSize: 9.5, marginTop: 2 },
   rule: { borderBottomWidth: 1.2, borderBottomColor: '#12665b', marginTop: 7 },
 
   // ── identity block ──────────────────────────────────────────────────────
@@ -128,21 +129,22 @@ const styles = StyleSheet.create({
   signatureBlock: { flexDirection: 'row', marginTop: 18, gap: 30 },
   signatureField: { flex: 1 },
   signatureLabel: { fontFamily: 'Helvetica-Bold', fontSize: 8.5 },
+  // Underlined: the value sits on the rule, as it would on the paper form.
   signatureValue: {
     fontSize: 9,
     marginTop: 10,
-    borderTopWidth: 0.8,
-    borderTopColor: '#333333',
-    paddingTop: 3,
+    borderBottomWidth: 0.8,
+    borderBottomColor: '#333333',
+    paddingBottom: 3,
   },
 
-  footer: {
+  pageNumber: {
     position: 'absolute',
-    bottom: 20,
+    bottom: 22,
     left: 38,
     right: 38,
-    fontSize: 6.8,
-    color: '#666666',
+    fontSize: 8,
+    color: '#444444',
     textAlign: 'center',
   },
 });
@@ -240,6 +242,7 @@ export function AssessmentDocument({ data }: { data: AssessmentData }) {
           <Text style={styles.collegeName}>{COLLEGE.name}</Text>
           <Text style={styles.courseName}>{COLLEGE.course}</Text>
           <Text style={styles.formTitle}>{COLLEGE.formTitle}</Text>
+          <Text style={styles.formSubtitle}>{COLLEGE.formSubtitle}</Text>
           <View style={styles.rule} />
         </View>
 
@@ -248,7 +251,7 @@ export function AssessmentDocument({ data }: { data: AssessmentData }) {
           <IdRow label="Registration Number:" value={data.student.registrationNumber} />
           <IdRow label="Occupation / Trade:" value={data.student.occupation ?? '—'} />
           <IdRow label="Supervisor:" value={data.assessorName} />
-          <IdRow label="Centre of Study:" value={data.centreName} />
+          <IdRow label="ODeL Centre of Study:" value={data.centreName} />
           <IdRow label="Date of Assessment:" value={dateText} />
         </View>
 
@@ -271,9 +274,7 @@ export function AssessmentDocument({ data }: { data: AssessmentData }) {
               </View>
 
               <View style={styles.comments}>
-                <Text style={styles.commentsLabel}>
-                  Comments — {section === 'theory' ? 'Theory' : 'Practical'} Session:
-                </Text>
+                <Text style={styles.commentsLabel}>Comments:</Text>
                 <Text style={styles.commentsBody}>{s.comments?.trim() || ' '}</Text>
               </View>
             </View>
@@ -291,9 +292,12 @@ export function AssessmentDocument({ data }: { data: AssessmentData }) {
           </View>
         </View>
 
-        <Text style={styles.footer} fixed>
-          {COLLEGE.name} · {COLLEGE.address} · {COLLEGE.phone} · {COLLEGE.website}
-        </Text>
+        {/* Rendered per page by the layout engine, so the count is always right. */}
+        <Text
+          style={styles.pageNumber}
+          fixed
+          render={({ pageNumber, totalPages }) => `${pageNumber} of ${totalPages}`}
+        />
       </Page>
     </Document>
   );

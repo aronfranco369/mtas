@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { createClient, getProfile } from '@/lib/supabase/server';
 import { StatusBadge } from '@/components/StatusBadge';
 import { RetryButton } from '@/components/RetryButton';
+import { ClearAssessmentButton } from '@/components/ClearAssessmentButton';
 import { formatAssessmentDate } from '@/lib/scoring';
 
 export const metadata = { title: 'Admin' };
@@ -238,7 +239,7 @@ export default async function AdminPage({
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap items-start gap-2">
                       <Link
                         href={`/api/submissions/${r.id}/pdf`}
                         className="rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium hover:border-mvttc-400"
@@ -246,6 +247,10 @@ export default async function AdminPage({
                         PDF
                       </Link>
                       <RetryButton submissionId={r.id} />
+                      <ClearAssessmentButton
+                        submissionId={r.id}
+                        studentName={student.full_name}
+                      />
                     </div>
                   </td>
                 </tr>

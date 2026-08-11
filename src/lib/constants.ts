@@ -15,7 +15,9 @@ export const COLLEGE = {
   name: 'MOROGORO VOCATIONAL TEACHERS TRAINING COLLEGE',
   shortName: 'MVTTC',
   course: 'VOCATIONAL TEACHERS CERTIFICATE COURSE',
-  formTitle: 'MICRO-TEACHING ASSESSMENT FORM (THEORY & PRACTICAL)',
+  // Rendered as two stacked lines on the report, above the rule.
+  formTitle: 'MICRO–TEACHING ASSESSMENT FORM',
+  formSubtitle: '(THEORY & PRACTICAL)',
   address: 'P.O. Box 671, Rwegasore Road, Morogoro, Tanzania',
   phone: '+255 23 261 4466',
   email: CONTACT_EMAIL,
@@ -43,8 +45,8 @@ export const SECTIONS = ['theory', 'practical'] as const;
 export type Section = (typeof SECTIONS)[number];
 
 export const SECTION_LABEL: Record<Section, string> = {
-  theory: 'THEORY SESSION',
-  practical: 'PRACTICAL SESSION',
+  theory: 'THEORY ASSESSMENT',
+  practical: 'PRACTICAL ASSESSMENT',
 };
 
 export const SECTION_BLURB: Record<Section, string> = {

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { percentage } from '@/lib/scoring';
@@ -75,6 +76,9 @@ export function AssessmentForm({
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'offline'>('idle');
   const [progress, setProgress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState<{ submissionId: string; delivered: boolean } | null>(
+    null,
+  );
   const submissionIdRef = useRef<string | null>(submission?.id ?? null);
   // Deduplicates concurrent ensureSubmission calls from overlapping saves.
   const ensureInFlightRef = useRef<Promise<string> | null>(null);
@@ -303,23 +307,23 @@ export function AssessmentForm({
       const res = await fetch(`/api/submissions/${id}/process`, { method: 'POST' });
       const body = await res.json().catch(() => ({}));
 
+      localStorage.removeItem(draftKey);
+      setProgress(null);
+
       if (!res.ok) {
         // The assessment itself is committed; only delivery failed. Say so
         // precisely rather than implying the work was lost.
-        setProgress(null);
         setError(
-          `Assessment saved, but the report could not be completed: ${
+          `Assessment saved and locked, but the report could not be delivered: ${
             body.error ?? res.statusText
-          }. An administrator can retry delivery.`,
+          }. An administrator can retry it from the dashboard.`,
         );
-        localStorage.removeItem(draftKey);
+        setDone({ submissionId: id, delivered: false });
         router.refresh();
         return;
       }
 
-      setProgress('Done');
-      localStorage.removeItem(draftKey);
-      router.push(`/submissions?highlight=${id}`);
+      setDone({ submissionId: id, delivered: body.emailStatus === 'sent' });
       router.refresh();
     } catch (e) {
       setProgress(null);
@@ -328,6 +332,18 @@ export function AssessmentForm({
   }
 
   // ── render ─────────────────────────────────────────────────────────────
+  if (done) {
+    return (
+      <SubmittedNotice
+        student={student}
+        submissionId={done.submissionId}
+        delivered={done.delivered}
+        deliveryError={error}
+        totals={totals}
+      />
+    );
+  }
+
   if (locked) {
     return (
       <LockedNotice
@@ -633,6 +649,100 @@ function ReviewStep({
         . Only an administrator can reopen it afterwards.
       </p>
     </section>
+  );
+}
+
+function SubmittedNotice({
+  student,
+  submissionId,
+  delivered,
+  deliveryError,
+  totals,
+}: {
+  student: StudentInfo;
+  submissionId: string;
+  delivered: boolean;
+  deliveryError: string | null;
+  totals: { theory: { total: number }; practical: { total: number } };
+}) {
+  return (
+    <div className="mx-auto max-w-2xl space-y-4 py-6">
+      <div className="rounded-xl border border-border bg-surface p-6 text-center">
+        <div
+          className={`mx-auto flex h-12 w-12 items-center justify-center rounded-full ${
+            delivered ? 'bg-mvttc-100 text-mvttc-800' : 'bg-amber-100 text-amber-800'
+          }`}
+          aria-hidden="true"
+        >
+          <svg
+            width="26"
+            height="26"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M4 12.5 9 17.5 20 6.5" />
+          </svg>
+        </div>
+
+        <h1 className="mt-4 font-serif text-xl font-semibold">Assessment submitted</h1>
+        <p className="mt-1 text-sm text-muted">
+          {student.fullName} · {student.registrationNumber}
+        </p>
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          {SECTIONS.map((s) => (
+            <div key={s} className="rounded-lg border border-border p-4">
+              <p className="text-sm text-muted capitalize">{s}</p>
+              <p className="mt-1 text-2xl font-semibold tabular-nums">
+                {totals[s].total}
+                <span className="text-base font-normal text-muted">/{SECTION_MAX}</span>
+              </p>
+              <p className="text-sm text-muted tabular-nums">
+                {percentage(totals[s].total)}%
+              </p>
+            </div>
+          ))}
+        </div>
+
+        <p
+          className={`mt-4 rounded-lg px-4 py-3 text-sm ${
+            delivered
+              ? 'bg-mvttc-50 text-mvttc-900'
+              : 'bg-amber-50 text-amber-900'
+          }`}
+        >
+          {delivered
+            ? `The report has been emailed to ${student.email}.`
+            : deliveryError ??
+              'The report was generated but has not been emailed yet. An administrator can retry delivery.'}
+        </p>
+
+        <div className="mt-5 flex flex-wrap justify-center gap-2">
+          <Link
+            href="/"
+            className="tap-target flex items-center rounded-lg bg-mvttc-700 px-5 text-sm font-medium text-white hover:bg-mvttc-800"
+          >
+            Back to trainees
+          </Link>
+          <a
+            href={`/api/submissions/${submissionId}/pdf`}
+            className="tap-target flex items-center rounded-lg border border-border px-4 text-sm font-medium hover:border-mvttc-400"
+          >
+            Download report
+          </a>
+          <Link
+            href="/submissions"
+            className="tap-target flex items-center rounded-lg border border-border px-4 text-sm font-medium hover:border-mvttc-400"
+          >
+            My assessments
+          </Link>
+        </div>
+      </div>
+    </div>
   );
 }
 
