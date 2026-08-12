@@ -357,7 +357,8 @@ export function AssessmentForm({
   const stepIndex = STEPS.indexOf(step);
 
   return (
-    <div className="space-y-5 pb-28">
+    // pb clears the sticky footer, which is two rows tall below sm.
+    <div className="space-y-5 pb-36 sm:pb-28">
       <TraineeHeader student={student} assessorName={assessor.fullName} />
 
       <ol className="flex items-center gap-2 text-sm" aria-label="Assessment progress">
@@ -407,15 +408,17 @@ export function AssessmentForm({
         </p>
       )}
 
-      {/* Sticky footer: running score stays visible while ticking on a phone. */}
-      <div className="fixed inset-x-0 bottom-0 z-10 border-t border-border bg-surface/95 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3">
+      {/* Sticky footer: running score stays visible while ticking on a phone.
+          The score and the buttons stack below sm — side by side they exceed a
+          narrow viewport, and the overflow pushed Next off-screen to the right. */}
+      <div className="fixed inset-x-0 bottom-0 z-10 overflow-x-hidden border-t border-border bg-surface/95 backdrop-blur">
+        <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:gap-3">
           <div className="min-w-0 flex-1 text-sm">
-            <p className="font-medium tabular-nums">
+            <p className="truncate font-medium tabular-nums">
               T {totals.theory.total}/{SECTION_MAX} ({percentage(totals.theory.total)}%) · P{' '}
               {totals.practical.total}/{SECTION_MAX} ({percentage(totals.practical.total)}%)
             </p>
-            <p className="text-xs text-muted">
+            <p className="truncate text-xs text-muted">
               {totals.theory.answered + totals.practical.answered} of 30 areas scored
               {saveState === 'saving' && ' · saving…'}
               {saveState === 'saved' && ' · saved'}
@@ -423,34 +426,36 @@ export function AssessmentForm({
             </p>
           </div>
 
-          {stepIndex > 0 && (
-            <button
-              type="button"
-              onClick={() => setStep(STEPS[stepIndex - 1])}
-              className="tap-target rounded-lg border border-border px-4 text-sm font-medium"
-            >
-              Back
-            </button>
-          )}
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+            {stepIndex > 0 && (
+              <button
+                type="button"
+                onClick={() => setStep(STEPS[stepIndex - 1])}
+                className="tap-target flex-1 rounded-lg border border-border px-4 text-sm font-medium sm:flex-none"
+              >
+                Back
+              </button>
+            )}
 
-          {step !== 'review' ? (
-            <button
-              type="button"
-              onClick={() => setStep(STEPS[stepIndex + 1])}
-              className="tap-target rounded-lg bg-mvttc-700 px-5 text-sm font-medium text-white hover:bg-mvttc-800"
-            >
-              Next
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={Boolean(progress)}
-              className="tap-target rounded-lg bg-mvttc-700 px-5 text-sm font-medium text-white hover:bg-mvttc-800 disabled:opacity-60"
-            >
-              {progress ?? 'Submit assessment'}
-            </button>
-          )}
+            {step !== 'review' ? (
+              <button
+                type="button"
+                onClick={() => setStep(STEPS[stepIndex + 1])}
+                className="tap-target flex-1 rounded-lg bg-mvttc-700 px-5 text-sm font-medium text-white hover:bg-mvttc-800 sm:flex-none"
+              >
+                Next
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={Boolean(progress)}
+                className="tap-target flex-1 rounded-lg bg-mvttc-700 px-5 text-sm font-medium text-white hover:bg-mvttc-800 disabled:opacity-60 sm:flex-none"
+              >
+                {progress ?? 'Submit assessment'}
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>
