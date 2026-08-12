@@ -22,6 +22,20 @@ import { formatAssessmentDate } from '@/lib/scoring';
 
 export type AreaRow = { areaNumber: number; title: string; score: number };
 
+/**
+ * The criteria are stored upper-case, as they were typed on the original form,
+ * but read as sentence case on the printed report. Presentation only — the
+ * stored titles are untouched, so this changes nothing already generated.
+ *
+ * A plain lower-casing is safe here: none of the 30 criteria contain an
+ * acronym or proper noun that would need its capitals kept.
+ */
+function sentenceCase(title: string): string {
+  const text = title.trim().toLowerCase();
+  const capitalised = text.charAt(0).toUpperCase() + text.slice(1);
+  return /[.!?]$/.test(capitalised) ? capitalised : `${capitalised}.`;
+}
+
 export type AssessmentData = {
   student: {
     fullName: string;
@@ -209,7 +223,7 @@ function SectionTable({ rows }: { rows: AreaRow[] }) {
             <Text style={[styles.areaText, styles.centerText]}>{row.areaNumber}</Text>
           </View>
           <View style={[styles.cell, { width: COL.area }]}>
-            <Text style={styles.areaText}>{row.title}</Text>
+            <Text style={styles.areaText}>{sentenceCase(row.title)}</Text>
           </View>
 
           {RATINGS.map((r) => (
