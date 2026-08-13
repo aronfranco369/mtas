@@ -4,19 +4,44 @@ import { createClient, getProfile } from '@/lib/supabase/server';
 import { StatusBadge } from '@/components/StatusBadge';
 import { RetryButton } from '@/components/RetryButton';
 import { ClearAssessmentButton } from '@/components/ClearAssessmentButton';
+import { StudentCentreMove } from '@/components/StudentCentreMove';
 import { formatAssessmentDate } from '@/lib/scoring';
+import type { SubmissionStatus } from '@/lib/database.types';
 
 export const metadata = { title: 'Admin' };
+
+/** Trainees per page. The list is paginated so one screen is one small query. */
+const PAGE_SIZE = 25;
+
+type TraineeRow = {
+  id: string;
+  full_name: string;
+  registration_number: string;
+  centre_id: string;
+  centres: { name: string } | null;
+  submissions: {
+    id: string;
+    status: SubmissionStatus;
+    email_status: string | null;
+    email_error: string | null;
+    assessed_on: string | null;
+    theory_total: number | null;
+    theory_percentage: number | null;
+    practical_total: number | null;
+    practical_percentage: number | null;
+    profiles: { full_name: string } | null;
+  }[];
+};
 
 export default async function AdminPage({
   searchParams,
 }: {
-  searchParams: Promise<{ centre?: string; status?: string }>;
+  searchParams: Promise<{ centre?: string; status?: string; q?: string; page?: string }>;
 }) {
   const profile = await getProfile();
   if (profile?.role !== 'admin') redirect('/');
 
-  const { centre, status } = await searchParams;
+  const { centre, status, q, page: pageParam } = await searchParams;
   const supabase = await createClient();
 
   const [{ data: centres }, { data: progress }, { data: assessors }] = await Promise.all([
@@ -25,32 +50,56 @@ export default async function AdminPage({
     supabase.from('assessor_progress').select('*').order('centre_name'),
   ]);
 
+  const page = Math.max(1, Number(pageParam) || 1);
+  const from = (page - 1) * PAGE_SIZE;
+  // Commas and parentheses are the or() filter's own syntax, so they cannot be
+  // passed through from a search box.
+  const search = (q ?? '').trim().replace(/[,()*"\\]/g, ' ').trim();
+
+  /**
+   * The list is keyed on the trainee, not the assessment, so trainees who have
+   * never been assessed appear too — they are the ones an administrator may
+   * move between centres. Filtering by a status inner-joins the assessments,
+   * which narrows the page to trainees holding one.
+   */
   let query = supabase
-    .from('submissions')
+    .from('students')
     .select(
-      `id, status, email_status, email_error, assessed_on,
-       theory_total, theory_percentage, practical_total, practical_percentage,
-       students!inner ( full_name, registration_number, centre_id, centres!inner ( name ) ),
-       profiles!submissions_assessor_id_fkey!inner ( full_name )`,
+      `id, full_name, registration_number, centre_id,
+       centres ( name ),
+       submissions${status ? '!inner' : ''} (
+         id, status, email_status, email_error, assessed_on,
+         theory_total, theory_percentage, practical_total, practical_percentage,
+         profiles!submissions_assessor_id_fkey ( full_name )
+       )`,
+      { count: 'exact' },
     )
-    .neq('status', 'draft')
-    .order('assessed_on', { ascending: false })
-    .limit(300);
+    .eq('is_active', true)
+    // id breaks ties: names repeat, and an unstable sort would let a trainee
+    // appear on two pages or on none.
+    .order('full_name')
+    .order('id')
+    .range(from, from + PAGE_SIZE - 1);
 
-  if (status) query = query.eq('status', status as never);
+  if (centre) query = query.eq('centre_id', centre);
+  if (status) query = query.eq('submissions.status', status as never);
+  if (search) {
+    query = query.or(
+      `full_name.ilike.%${search}%,registration_number.ilike.%${search}%`,
+    );
+  }
 
-  const { data: allRows } = await query;
+  const { data, count } = await query;
+  const trainees = (data ?? []) as unknown as TraineeRow[];
 
-  // Centre lives on the joined student, so it is filtered after fetching.
-  const rows = (allRows ?? []).filter((r) => {
-    if (!centre) return true;
-    return (r.students as unknown as { centre_id: string }).centre_id === centre;
-  });
-
-  const counts = rows.reduce<Record<string, number>>((acc, r) => {
-    acc[r.status] = (acc[r.status] ?? 0) + 1;
-    return acc;
-  }, {});
+  const total = count ?? 0;
+  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const params = (over: Record<string, string | undefined>) => {
+    const next = new URLSearchParams();
+    const merged = { centre, status, q, page: String(page), ...over };
+    for (const [k, v] of Object.entries(merged)) if (v) next.set(k, v);
+    return `/admin?${next.toString()}`;
+  };
 
   return (
     <div className="space-y-5">
@@ -58,8 +107,9 @@ export default async function AdminPage({
         <div>
           <h1 className="font-serif text-2xl font-semibold">Administration</h1>
           <p className="mt-1 text-sm text-muted">
-            {rows.length} assessment{rows.length === 1 ? '' : 's'}
-            {Object.entries(counts).map(([k, v]) => ` · ${k}: ${v}`)}
+            {total} trainee{total === 1 ? '' : 's'} match
+            {total === 1 ? 'es' : ''} these filters
+            {total > 0 && ` · showing ${from + 1}–${Math.min(from + PAGE_SIZE, total)}`}
           </p>
         </div>
 
@@ -184,6 +234,15 @@ export default async function AdminPage({
           <option value="failed">Failed</option>
         </select>
 
+        <input
+          type="search"
+          name="q"
+          defaultValue={q ?? ''}
+          placeholder="Search name or index number"
+          aria-label="Search trainees by name or index number"
+          className="tap-target min-w-56 flex-1 rounded-lg border border-border bg-surface px-3 text-sm"
+        />
+
         <button
           type="submit"
           className="tap-target rounded-lg border border-border px-4 text-sm font-medium hover:border-mvttc-400"
@@ -207,22 +266,50 @@ export default async function AdminPage({
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => {
-              const student = r.students as unknown as {
-                full_name: string;
-                registration_number: string;
-                centres: { name: string };
-              };
-              const assessor = r.profiles as unknown as { full_name: string };
+            {trainees.map((t) => {
+              const assessments = t.submissions.filter((s) => s.status !== 'draft');
+              const centreName = t.centres?.name ?? '—';
 
-              return (
+              // Never assessed: one row for the trainee, and the only row where
+              // the centre may be changed. A draft is shown but does not block.
+              if (assessments.length === 0) {
+                const draft = t.submissions.find((s) => s.status === 'draft');
+
+                return (
+                  <tr key={t.id} className="border-b border-border last:border-0">
+                    <td className="px-4 py-3">
+                      <p className="font-medium">{t.full_name}</p>
+                      <p className="text-xs text-muted">{t.registration_number}</p>
+                    </td>
+                    <td className="px-4 py-3">{centreName}</td>
+                    <td className="px-4 py-3">{draft?.profiles?.full_name ?? '—'}</td>
+                    <td className="px-4 py-3 whitespace-nowrap">—</td>
+                    <td className="px-4 py-3 text-right tabular-nums">—</td>
+                    <td className="px-4 py-3 text-right tabular-nums">—</td>
+                    <td className="px-4 py-3">
+                      <StatusBadge status={draft ? 'draft' : null} />
+                    </td>
+                    <td className="px-4 py-3">
+                      <StudentCentreMove
+                        studentId={t.id}
+                        studentName={t.full_name}
+                        centreId={t.centre_id}
+                        centres={centres ?? []}
+                        draftAssessor={draft ? (draft.profiles?.full_name ?? 'an assessor') : null}
+                      />
+                    </td>
+                  </tr>
+                );
+              }
+
+              return assessments.map((r) => (
                 <tr key={r.id} className="border-b border-border last:border-0">
                   <td className="px-4 py-3">
-                    <p className="font-medium">{student.full_name}</p>
-                    <p className="text-xs text-muted">{student.registration_number}</p>
+                    <p className="font-medium">{t.full_name}</p>
+                    <p className="text-xs text-muted">{t.registration_number}</p>
                   </td>
-                  <td className="px-4 py-3">{student.centres.name}</td>
-                  <td className="px-4 py-3">{assessor.full_name}</td>
+                  <td className="px-4 py-3">{centreName}</td>
+                  <td className="px-4 py-3">{r.profiles?.full_name ?? '—'}</td>
                   <td className="px-4 py-3 whitespace-nowrap">
                     {r.assessed_on ? formatAssessmentDate(r.assessed_on) : '—'}
                   </td>
@@ -249,22 +336,55 @@ export default async function AdminPage({
                       <RetryButton submissionId={r.id} />
                       <ClearAssessmentButton
                         submissionId={r.id}
-                        studentName={student.full_name}
+                        studentName={t.full_name}
                       />
                     </div>
                   </td>
                 </tr>
-              );
+              ));
             })}
           </tbody>
         </table>
 
-        {rows.length === 0 && (
+        {trainees.length === 0 && (
           <p className="py-12 text-center text-sm text-muted">
-            No assessments match these filters.
+            No trainees match these filters.
           </p>
         )}
       </div>
+
+      {pageCount > 1 && (
+        <nav
+          className="flex items-center justify-between gap-3"
+          aria-label="Assessments pagination"
+        >
+          {page > 1 ? (
+            <Link
+              href={params({ page: String(page - 1) })}
+              className="tap-target flex items-center rounded-lg border border-border px-4 text-sm font-medium hover:border-mvttc-400"
+            >
+              Previous
+            </Link>
+          ) : (
+            <span />
+          )}
+
+          <p className="text-sm text-muted tabular-nums">
+            Page {page} of {pageCount}
+          </p>
+
+          {page < pageCount ? (
+            <Link
+              href={params({ page: String(page + 1) })}
+              className="tap-target flex items-center rounded-lg border border-border px-4 text-sm font-medium hover:border-mvttc-400"
+            >
+              Next
+            </Link>
+          ) : (
+            <span />
+          )}
+        </nav>
+      )}
     </div>
   );
 }
