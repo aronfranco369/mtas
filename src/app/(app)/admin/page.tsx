@@ -5,6 +5,7 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { RetryButton } from '@/components/RetryButton';
 import { ClearAssessmentButton } from '@/components/ClearAssessmentButton';
 import { StudentCentreMove } from '@/components/StudentCentreMove';
+import { AddStudentForm } from '@/components/AddStudentForm';
 import { formatAssessmentDate } from '@/lib/scoring';
 import type { SubmissionStatus } from '@/lib/database.types';
 
@@ -44,11 +45,20 @@ export default async function AdminPage({
   const { centre, status, q, page: pageParam } = await searchParams;
   const supabase = await createClient();
 
-  const [{ data: centres }, { data: progress }, { data: assessors }] = await Promise.all([
-    supabase.from('centres').select('id, name').order('name'),
-    supabase.from('centre_progress').select('*').order('centre_name'),
-    supabase.from('assessor_progress').select('*').order('centre_name'),
-  ]);
+  const [{ data: centres }, { data: progress }, { data: assessors }, { data: roster }] =
+    await Promise.all([
+      supabase.from('centres').select('id, name').order('name'),
+      supabase.from('centre_progress').select('*').order('centre_name'),
+      supabase.from('assessor_progress').select('*').order('centre_name'),
+      // Existing course and occupation wording, offered as suggestions when
+      // registering a trainee so the values stay groupable.
+      supabase.from('students').select('course, occupation'),
+    ]);
+
+  const distinct = (values: (string | null)[]) =>
+    [...new Set(values.filter((v): v is string => Boolean(v)))].sort();
+  const courses = distinct((roster ?? []).map((r) => r.course));
+  const occupations = distinct((roster ?? []).map((r) => r.occupation));
 
   const page = Math.max(1, Number(pageParam) || 1);
   const from = (page - 1) * PAGE_SIZE;
@@ -207,6 +217,12 @@ export default async function AdminPage({
       </section>
 
       <h2 className="font-serif text-lg font-semibold">Assessments</h2>
+
+      <AddStudentForm
+        centres={centres ?? []}
+        courses={courses}
+        occupations={occupations}
+      />
 
       <form className="flex flex-wrap gap-2" method="get">
         <select
